@@ -1,10 +1,10 @@
-package client;
+package server;
 
-public class ClientMain {
+public class ServerGuiMain {
     public static void main(String[] args) {
         javax.swing.SwingUtilities.invokeLater(new Runnable() {
             @Override public void run() {
-                new StartFrame().setVisible(true);
+                new ServerFrame().setVisible(true);
             }
         });
     }

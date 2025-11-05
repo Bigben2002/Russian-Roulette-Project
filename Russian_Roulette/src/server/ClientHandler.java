@@ -27,9 +27,16 @@ public class ClientHandler implements Runnable {
     @Override
     public void run() {
         try {
-            // 로비 단계는 수신 처리 필요 없음 (향후: READY, LEAVE 등 추가 가능)
-            while (in.readLine() != null) {
-                // ignore for now
+            String line;
+            while ((line = in.readLine()) != null) {
+                // CHAT <message...>
+                if (line.startsWith("CHAT ")) {
+                    String msg = line.substring(5).trim();
+                    if (room != null && !msg.isEmpty()) {
+                        room.broadcastChat(name, msg);
+                    }
+                }
+                // 로비 단계의 다른 명령은 없음
             }
         } catch (IOException ignored) {
         } finally {
