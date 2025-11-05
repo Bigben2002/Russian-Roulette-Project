@@ -1,0 +1,1 @@
+INDEX VERSION 1.134+C:\Users\PCuser\Documents\GitHub\Russian-Roulette-Project\Russian_Roulette\.metadata\.plugins\org.eclipse.jdt.core
