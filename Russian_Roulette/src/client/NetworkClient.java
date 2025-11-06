@@ -1,69 +1,47 @@
 package client;
 
-import javax.swing.*;
+import server.Protocol;
 import java.io.*;
-import java.net.*;
+import java.net.Socket;
 import java.util.function.Consumer;
 
 public class NetworkClient {
     private Socket socket;
     private BufferedReader in;
-    private BufferedWriter out;
+    private PrintWriter out;
+    private volatile Consumer<String> onLine = s -> {};
 
-    private Consumer<String> onLine;
-
-    public NetworkClient(Consumer<String> onLine) {
-        this.onLine = onLine;
-    }
-
-    public void setOnLine(Consumer<String> newListener) {
-        this.onLine = newListener;
+    public NetworkClient(Consumer<String> initialConsumer) {
+        if (initialConsumer != null) this.onLine = initialConsumer;
     }
 
     public void connect(String host, int port, String name) throws IOException {
-        SocketAddress addr = new InetSocketAddress(host, port);
-        socket = new Socket();
-        socket.connect(addr, 3000);
-        socket.setSoTimeout(0);
-
+        socket = new Socket(host, port);
         in  = new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
-        out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), "UTF-8"));
+        out = new PrintWriter(new OutputStreamWriter(socket.getOutputStream(), "UTF-8"), true);
 
+        // 서버 HELLO 응답(닉네임 전송)
         String hello = in.readLine();
-        if (hello == null || !hello.startsWith("HELLO")) {
-            throw new IOException("Handshake failed: HELLO not received");
-        }
-        out.write(name);
-        out.write("\n");
-        out.flush();
+        if (Protocol.HELLO.equals(hello)) { out.println(name); }
 
-        Thread reader = new Thread(new Runnable() {
-            @Override public void run() {
-                try {
-                    String line;
-                    while ((line = in.readLine()) != null) {
-                        final String msg = line;
-                        SwingUtilities.invokeLater(new Runnable() {
-                            @Override public void run() {
-                                if (onLine != null) onLine.accept(msg);
-                            }
-                        });
-                    }
-                } catch (IOException ignored) {
-                } finally {
-                    try { socket.close(); } catch (IOException ignored) {}
-                }
+        new Thread(this::listen, "ClientListen").start();
+    }
+
+    private void listen() {
+        try {
+            String line;
+            while ((line = in.readLine()) != null) {
+                onLine.accept(line);
             }
-        }, "Client-Reader");
-        reader.setDaemon(true);
-        reader.start();
+        } catch (IOException ignore) {
+        }
+    }
+
+    public void setOnLine(Consumer<String> consumer) {
+        this.onLine = (consumer == null) ? (s -> {}) : consumer;
     }
 
     public void send(String line) {
-        try {
-            out.write(line);
-            out.write("\n");
-            out.flush();
-        } catch (IOException ignored) {}
+        out.println(line);
     }
 }

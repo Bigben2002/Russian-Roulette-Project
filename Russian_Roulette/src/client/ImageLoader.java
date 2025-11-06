@@ -1,22 +1,21 @@
 package client;
 
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
-import java.io.InputStream;
+import javax.swing.*;
+import java.awt.*;
+import java.net.URL;
 
-public class ImageLoader {
-    public static BufferedImage load(String pathInResources) {
-        if (pathInResources == null || !pathInResources.startsWith("/")) {
-            throw new IllegalArgumentException("경로는 반드시 '/'로 시작해야 함: " + pathInResources);
-        }
+public final class ImageLoader {
+    private ImageLoader(){}
 
-        try (InputStream in = ImageLoader.class.getResourceAsStream(pathInResources)) {
-            if (in == null) {
-                throw new IllegalArgumentException("리소스 없음: " + pathInResources);
-            }
-            return ImageIO.read(in);
-        } catch (Exception e) {
-            throw new RuntimeException("이미지 로드 실패: " + pathInResources, e);
-        }
+    public static ImageIcon load(String path) {
+        // 리소스는 classpath 기준: resources/images/...
+        URL url = ImageLoader.class.getClassLoader().getResource(path);
+        if (url == null) return null;
+        return new ImageIcon(url);
+    }
+
+    public static Image scaled(ImageIcon icon, int w, int h) {
+        if (icon == null) return null;
+        return icon.getImage().getScaledInstance(w, h, Image.SCALE_SMOOTH);
     }
 }

@@ -5,42 +5,46 @@ import java.net.Socket;
 
 public class ClientHandler implements Runnable {
     private final Socket socket;
-    private final Room room;
-    private final String name;
     private final BufferedReader in;
-    private final BufferedWriter out;
+    private final PrintWriter out; // autoFlush
+    private volatile Room room;
+    private final String nickname;
 
-    public ClientHandler(Socket socket, Room room, String name) throws IOException {
-        this.socket = socket;
-        this.room = room;
-        this.name = name;
-        this.in = new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
-        this.out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), "UTF-8"));
+    public ClientHandler(Socket socket, String nickname) throws IOException {
+        this.socket   = socket;
+        this.nickname = nickname;
+        this.in  = new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
+        this.out = new PrintWriter(new OutputStreamWriter(socket.getOutputStream(), "UTF-8"), true);
     }
 
-    public void send(String line) throws IOException {
-        out.write(line);
-        out.write("\n");
-        out.flush();
-    }
+    public void setRoom(Room room) { this.room = room; }
+    public String getNickname() { return nickname; }
 
     @Override
     public void run() {
         try {
             String line;
             while ((line = in.readLine()) != null) {
-                // CHAT <message...>
-                if (line.startsWith("CHAT ")) {
-                    String msg = line.substring(5).trim();
+                if (line.isEmpty()) continue;
+
+                // === CHAT <msg> ===
+                if (line.startsWith(Protocol.CHAT + " ")) {
+                    String msg = line.substring(Protocol.CHAT.length() + 1).trim();
                     if (room != null && !msg.isEmpty()) {
-                        room.broadcastChat(name, msg);
+                        room.broadcastChat(nickname, msg);
                     }
+                    continue;
                 }
-                // 로비 단계의 다른 명령은 없음
+
+                // (확장 지점) 그 외 프로토콜: TURN/FIRE/ITEM 등
             }
-        } catch (IOException ignored) {
+        } catch (IOException ignore) {
         } finally {
             try { socket.close(); } catch (IOException ignored) {}
         }
+    }
+
+    public void send(String line) {
+        out.println(line); // PrintWriter autoFlush
     }
 }

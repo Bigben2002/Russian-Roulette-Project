@@ -1,11 +1,9 @@
 package server;
 
+import javax.swing.*;
+
 public class ServerGuiMain {
     public static void main(String[] args) {
-        javax.swing.SwingUtilities.invokeLater(new Runnable() {
-            @Override public void run() {
-                new ServerFrame().setVisible(true);
-            }
-        });
+        SwingUtilities.invokeLater(() -> new ServerFrame().setVisible(true));
     }
 }
