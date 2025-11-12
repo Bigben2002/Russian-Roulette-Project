@@ -6,7 +6,8 @@ import java.net.Socket;
 public class ClientHandler implements Runnable {
     private final Socket socket;
     private final BufferedReader in;
-    private final PrintWriter out; // autoFlush
+    private final PrintWriter out; // autoFlush = true
+
     private volatile Room room;
     private final String nickname;
 
@@ -27,16 +28,27 @@ public class ClientHandler implements Runnable {
             while ((line = in.readLine()) != null) {
                 if (line.isEmpty()) continue;
 
-                // === CHAT <msg> ===
+                // === CHAT <text> ===
                 if (line.startsWith(Protocol.CHAT + " ")) {
                     String msg = line.substring(Protocol.CHAT.length() + 1).trim();
-                    if (room != null && !msg.isEmpty()) {
-                        room.broadcastChat(nickname, msg);
-                    }
+                    if (room != null && !msg.isEmpty()) room.broadcastChat(nickname, msg);
                     continue;
                 }
 
-                // (확장 지점) 그 외 프로토콜: TURN/FIRE/ITEM 등
+                // === AIM SELF|ENEMY ===
+                if (line.startsWith(Protocol.AIM + " ")) {
+                    String target = line.substring(Protocol.AIM.length() + 1).trim();
+                    if (room != null) room.onAim(this, target);
+                    continue;
+                }
+
+                // === FIRE ===
+                if (line.equals(Protocol.FIRE)) {
+                    if (room != null) room.onFire(this);
+                    continue;
+                }
+
+                // (확장 여지) 기타 프로토콜
             }
         } catch (IOException ignore) {
         } finally {
@@ -44,7 +56,5 @@ public class ClientHandler implements Runnable {
         }
     }
 
-    public void send(String line) {
-        out.println(line); // PrintWriter autoFlush
-    }
+    public void send(String line) { out.println(line); }
 }

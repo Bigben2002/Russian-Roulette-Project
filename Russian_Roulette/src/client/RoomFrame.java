@@ -4,7 +4,6 @@ import server.Protocol;
 
 import javax.swing.*;
 import java.awt.*;
-import java.util.function.Consumer;
 
 public class RoomFrame extends JFrame {
     private final JLabel statusLabel = new JLabel("STATUS: -");
@@ -45,7 +44,6 @@ public class RoomFrame extends JFrame {
             statusLabel.setText("STATUS: " + line.substring(Protocol.ROOM_STATUS.length()).trim());
 
         } else if (line.startsWith(Protocol.ROOM_CREATED)) {
-            // ROOM_CREATED P1=... P2=...
             p1Name = parseKV(line, "P1");
             p2Name = parseKV(line, "P2");
             p1Label.setText("P1: " + (p1Name == null ? "-" : p1Name));
@@ -56,7 +54,6 @@ public class RoomFrame extends JFrame {
             if (p2Name == null) p2Name = parseKV(line, "P2");
             try {
                 GameRoomFrame gf = new GameRoomFrame(p1Name, p2Name, myName, net);
-                // 게임방으로 라인 소비자 교체
                 net.setOnLine(gf.getLineConsumer());
                 gf.setVisible(true);
                 dispose();
