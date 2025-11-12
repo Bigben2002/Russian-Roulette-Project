@@ -35,6 +35,12 @@ public class ClientHandler implements Runnable {
                     continue;
                 }
 
+                // === [Req 3] READY ===
+                if (line.equals(Protocol.READY)) {
+                    if (room != null) room.onReady(this);
+                    continue;
+                }
+
                 // === AIM SELF|ENEMY ===
                 if (line.startsWith(Protocol.AIM + " ")) {
                     String target = line.substring(Protocol.AIM.length() + 1).trim();
