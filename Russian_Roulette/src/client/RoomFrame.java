@@ -93,11 +93,17 @@ public class RoomFrame extends JFrame {
             // === [Req 3-3] 초기 총알 정보 파싱 ===
             int initialBullets = parseIntSafe(parseKV(line, "B"), 0);
             int initialBlanks  = parseIntSafe(parseKV(line, "K"), 0);
-            // === [Req 3-3] 끝 ===
+            
+            // [핵심 수정] 초기 아이템 목록을 파싱
+            String p1InitialItems = parseKV(line, "P1_ITEMS");
+            String p2InitialItems = parseKV(line, "P2_ITEMS");
+            // === [핵심 수정 끝] ===
             
             try {
-                // === [Req 3-3] 생성자에 총알 정보 전달 ===
-                GameRoomFrame gf = new GameRoomFrame(p1Name, p2Name, myName, net, initialBullets, initialBlanks);
+                // === [핵심 수정] GameRoomFrame 생성자에 아이템 정보 전달 ===
+                GameRoomFrame gf = new GameRoomFrame(p1Name, p2Name, myName, net, 
+                                                     initialBullets, initialBlanks,
+                                                     p1InitialItems, p2InitialItems); // <--- 아이템 추가
                 net.setOnLine(gf.getLineConsumer());
                 gf.setVisible(true);
                 dispose();

@@ -19,5 +19,11 @@ public final class Protocol {
     public static final String FIRE_RESOLVE = "FIRE_RESOLVE"; // 서버→클라: FIRE_RESOLVE RESULT=BULLET|BLANK TARGET=SELF|ENEMY HP1=.. HP2=.. SHOT=k/6
     public static final String GAME_OVER    = "GAME_OVER";    // 서버→클라: GAME_OVER WIN=P1|P2|DRAW
 
+    // === 아이템 추가 프로토콜 ===
+    public static final String ITEM_UPDATE  = "ITEM_UPDATE";  // 서버→클라: ITEM_UPDATE WHO=P1|P2 ITEMS=H.S.B...
+    public static final String USE_ITEM     = "USE_ITEM";     // 클라→서버: USE_ITEM SLOT=1..6
+    public static final String PEEK_RESULT  = "PEEK_RESULT";  // 서버→클라: PEEK_RESULT TYPE=BULLET|BLANK
+    // === 끝 ===
+
     private Protocol() {}
 }
