@@ -5,6 +5,8 @@ import server.Protocol;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.util.Arrays;
 import java.util.function.Consumer;
 
@@ -33,29 +35,26 @@ public class GameRoomFrame extends JFrame {
     private int blanksLeft  = 0;       // 남은 공탄 수
     private String gameOverBanner = null;
 
-    // === [Req 9] 플레이어별 조준 상태 ===
+    // === 플레이어별 조준 상태 ===
     private String p1Aim = "ENEMY";
     private String p2Aim = "ENEMY";
-    // === [Req 9] 끝 ===
     
-    // === [Item] 아이템 가방 상태 ===
-    private String[] myItems = new String[6];
-    private String[] enemyItems = new String[6];
-    private String peekResult = null; // 돋보기(Search) 사용 결과
-    private String bombStatus = null; // 폭탄(Bomb) 사용 상태
+    // === [Item] 아이템 가방 절대 상태 (P1, P2 기준) ===
+    private String[] p1Items = new String[6]; 
+    private String[] p2Items = new String[6]; 
+    private String peekResult = null; 
+    private String bombStatus = null; 
     // === [Item] 끝 ===
 
-
     // ===== 총 회전(애니메이션) =====
-    private double currentAngleRad = 0.0;      // 현재 각도
-    private double targetAngleRad  = 0.0;      // 목표 각도
-    private final Timer rotTimer;              // 부드러운 회전용 타이머
-    private final double ROT_STEP = Math.toRadians(12); // 틱당 12도
+    private double currentAngleRad = 0.0;     
+    private double targetAngleRad  = 0.0;     
+    private Timer rotTimer;             
+    private final double ROT_STEP = Math.toRadians(12); 
 
-    // === [핵심 수정] 생성자: 아이템 초기 목록 파라미터 추가 ===
     public GameRoomFrame(String p1Name, String p2Name, String myName, NetworkClient net, 
                          int initialBullets, int initialBlanks,
-                         String p1InitialItems, String p2InitialItems) { // <--- 아이템 파라미터 추가
+                         String p1InitialItems, String p2InitialItems) { 
         super("Game Room");
         this.p1Name = p1Name; this.p2Name = p2Name; this.myName = myName; this.net = net;
         this.myRole = myName.equals(p1Name) ? "P1" : "P2";
@@ -63,26 +62,27 @@ public class GameRoomFrame extends JFrame {
         this.bulletsLeft = initialBullets;
         this.blanksLeft = initialBlanks;
         
-        // 아이템 배열 초기화 대신, 파싱하여 즉시 아이템 상태를 설정
-        if ("P1".equals(myRole)) {
-            setItemsFromStrings(p1InitialItems, this.myItems);
-            setItemsFromStrings(p2InitialItems, this.enemyItems);
-        } else {
-            setItemsFromStrings(p2InitialItems, this.myItems);
-            setItemsFromStrings(p1InitialItems, this.enemyItems);
-        }
+        setItemsFromStrings(p1InitialItems, this.p1Items);
+        setItemsFromStrings(p2InitialItems, this.p2Items);
 
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        addWindowListener(new WindowAdapter() {
+            @Override public void windowClosing(WindowEvent e) {
+                if (JOptionPane.showConfirmDialog(GameRoomFrame.this, "정말 나가시겠습니까?", "종료 확인", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
+                    net.send(Protocol.EXIT_ROOM); 
+                    net.close(); 
+                    dispose();
+                }
+            }
+        });
 
-        setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         setSize(960, 640);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
 
-        // 중앙 캔버스
         canvas = new RoomCanvas();
         add(canvas, BorderLayout.CENTER);
 
-        // 상단 바
         JPanel topBar = new JPanel(new BorderLayout());
         topBar.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
         JLabel youLabel = new JLabel("You: " + myRole + " (" + myName + ")");
@@ -94,52 +94,42 @@ public class GameRoomFrame extends JFrame {
         JButton chatBtn = new JButton("Chat");
         chatBtn.setFocusable(false);
         
-        keyBtn.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent e) { showKeyHelp(); }
-        });
-        chatBtn.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent e) { ensureChatDialog(); }
-        });
+        keyBtn.addActionListener(e -> showKeyHelp());
+        chatBtn.addActionListener(e -> ensureChatDialog());
         rightButtons.add(keyBtn);
         rightButtons.add(chatBtn);
         rightButtons.setOpaque(false);
         topBar.add(rightButtons, BorderLayout.EAST);
         add(topBar, BorderLayout.NORTH);
 
-        // 회전 타이머(애니메이션)
-        rotTimer = new Timer(16, new java.awt.event.ActionListener() {
-            @Override public void actionPerformed(java.awt.event.ActionEvent e) {
-                double diff = targetAngleRad - currentAngleRad;
-                if (Math.abs(diff) <= ROT_STEP) {
-                    currentAngleRad = targetAngleRad;
-                    rotTimer.stop();
-                } else {
-                    currentAngleRad += Math.signum(diff) * ROT_STEP;
-                }
-                canvas.repaint();
+        rotTimer = new Timer(16, e -> {
+            double diff = targetAngleRad - currentAngleRad;
+            if (Math.abs(diff) <= ROT_STEP) {
+                currentAngleRad = targetAngleRad;
+                rotTimer.stop();
+            } else {
+                currentAngleRad += Math.signum(diff) * ROT_STEP;
             }
+            canvas.repaint();
         });
         rotTimer.setRepeats(true);
 
-        setupKeyBindings();
+        setupKeyBindings(); 
         net.setOnLine(getLineConsumer());
+        
+        SwingUtilities.invokeLater(() -> this.requestFocusInWindow());
     }
     
-    // === [추가] 문자열을 배열로 변환하는 헬퍼 메소드 ===
     private void setItemsFromStrings(String itemsStr, String[] targetArray) {
         if (itemsStr == null || itemsStr.isEmpty()) {
             Arrays.fill(targetArray, "-");
             return;
         }
-        String[] items = itemsStr.split("\\.");
-        System.arraycopy(items, 0, targetArray, 0, Math.min(items.length, targetArray.length));
-        // 남은 공간이 있다면 '-'로 채웁니다.
-        if (items.length < targetArray.length) {
-            Arrays.fill(targetArray, items.length, targetArray.length, "-");
+        String[] items = itemsStr.split(","); 
+        for (int i = 0; i < targetArray.length; i++) {
+            targetArray[i] = (i < items.length) ? items[i] : "-";
         }
     }
-    // === [추가 끝] ===
-
 
     private void showKeyHelp() {
         JOptionPane.showMessageDialog(this,
@@ -156,13 +146,7 @@ public class GameRoomFrame extends JFrame {
     }
 
     public Consumer<String> getLineConsumer() {
-        return new Consumer<String>() {
-            @Override public void accept(String line) {
-                SwingUtilities.invokeLater(new Runnable() {
-                    @Override public void run() { handleServerLine(line); }
-                });
-            }
-        };
+        return line -> SwingUtilities.invokeLater(() -> handleServerLine(line));
     }
 
     private void handleServerLine(String line) {
@@ -173,22 +157,28 @@ public class GameRoomFrame extends JFrame {
             return;
         }
 
+        if (line.startsWith(Protocol.CHAT + " ")) {
+            String msg = line.substring(Protocol.CHAT.length() + 1).trim();
+            ensureChatDialog(); 
+            chatDialog.appendLine(msg, true); 
+            return;
+        }
+
         if (line.startsWith(Protocol.TURN + " ")) {
             String who = line.substring((Protocol.TURN + " ").length()).trim();
             if (who.equals("P1") || who.equals("P2")) currentTurn = who;
+            
+            if (myRole.equals(currentTurn)) {
+                bombStatus = null;
+            }
             updateGunAngleForCurrentTurn(); 
             canvas.repaint();
             return;
         }
         
         if (line.startsWith(Protocol.AIM_UPDATE + " ")) {
-            String who = "P_UNKNOWN";
-            String target = "ENEMY";
-            String[] sp = line.split("\\s+");
-            for (int i = 0; i < sp.length; i++) {
-                if (sp[i].startsWith("WHO=")) who = sp[i].substring(4);
-                else if (sp[i].startsWith("TARGET=")) target = sp[i].substring(7);
-            }
+            String who = parseKV(line, "WHO");
+            String target = parseKV(line, "TARGET");
             
             if ("P1".equals(who)) p1Aim = target;
             else if ("P2".equals(who)) p2Aim = target;
@@ -198,7 +188,6 @@ public class GameRoomFrame extends JFrame {
             return;
         }
 
-
         if (line.startsWith(Protocol.RELOAD + " ")) {
             parseReload(line);
             canvas.repaint();
@@ -206,39 +195,37 @@ public class GameRoomFrame extends JFrame {
         }
 
         if (line.startsWith(Protocol.FIRE_RESOLVE + " ")) {
-            // FIRE_RESOLVE 메시지를 받으면 돋보기/폭탄 상태를 초기화
-            peekResult = null; // Fire 이후 돋보기 결과는 지워야 함 (폭탄 상태처럼)
-            bombStatus = null; // 폭탄 상태 확실히 초기화
+            peekResult = null; 
+            bombStatus = null; 
             parseFireResolve(line);
             canvas.repaint();
             return;
         }
 
         if (line.startsWith(Protocol.GAME_OVER + " ")) {
-            String win = "UNKNOWN";
-            String[] sp = line.split("\\s+");
-            for (int i = 0; i < sp.length; i++) {
-                if (sp[i].startsWith("WIN=")) { win = sp[i].substring(4); break; }
-            }
+            String win = parseKV(line, "WIN");
             gameOverBanner = "GAME OVER - WIN: " + win;
             canvas.repaint();
             return;
         }
         
-        // === [Item] 아이템 업데이트 (재장전, 아이템 사용 후 서버로부터의 일반적인 업데이트) ===
         if (line.startsWith(Protocol.ITEM_UPDATE + " ")) {
             parseItemUpdate(line);
             canvas.repaint();
             return;
         }
         
-        // === [핵심 수정] 돋보기 결과 처리 ===
         if (line.startsWith(Protocol.PEEK_RESULT + " ")) {
             String result = parseKV(line, "TYPE");
-            // peekResult 변수에 값을 저장하고 UI를 갱신합니다.
             peekResult = "총알 확인: " + ("BULLET".equals(result) ? "실탄" : "공탄"); 
-            canvas.repaint(); // UI 갱신 요청
+            canvas.repaint(); 
             return;
+        }
+
+        if (line.startsWith(Protocol.EXIT_ROOM)) {
+             JOptionPane.showMessageDialog(this, "상대방이 나갔습니다. 게임 종료.");
+             net.close();
+             dispose();
         }
     }
 
@@ -248,7 +235,7 @@ public class GameRoomFrame extends JFrame {
             int spaceAfter = line.indexOf(' ', slash);
             if (slash > 0 && spaceAfter > slash) {
                 String left = line.substring(Protocol.RELOAD.length() + 1, slash).trim();
-                shotIndex = Integer.parseInt(left); // 보통 0
+                shotIndex = Integer.parseInt(left); 
             }
             String[] sp = line.split("\\s+");
             for (int i = 0; i < sp.length; i++) {
@@ -260,7 +247,6 @@ public class GameRoomFrame extends JFrame {
 
     private void parseFireResolve(String line) {
         String[] sp = line.split("\\s+");
-        int damageReceived = 1; 
         
         for (int i = 0; i < sp.length; i++) {
             if (sp[i].startsWith("HP1=")) hp1 = parseIntSafe(sp[i].substring(4), hp1);
@@ -274,14 +260,7 @@ public class GameRoomFrame extends JFrame {
                     shotIndex = parseIntSafe(left, shotIndex);
                 }
             }
-            else if (sp[i].startsWith("DMG=")) {
-                damageReceived = parseIntSafe(sp[i].substring(4), 1);
-            }
         }
-        
-        // 디버그 로그 유지
-        System.out.println("🔥 FIRE_RESOLVE - Applied Damage: " + damageReceived + 
-                           " | HP1: " + hp1 + " | HP2: " + hp2);
     }
     
     private void parseItemUpdate(String line) {
@@ -290,14 +269,11 @@ public class GameRoomFrame extends JFrame {
         if (itemsStr == null) return;
         
         if ("P1".equals(who)) {
-            if ("P1".equals(myRole)) setItemsFromStrings(itemsStr, myItems);
-            else setItemsFromStrings(itemsStr, enemyItems);
+            setItemsFromStrings(itemsStr, p1Items); 
         } else if ("P2".equals(who)) {
-            if ("P2".equals(myRole)) setItemsFromStrings(itemsStr, myItems);
-            else setItemsFromStrings(itemsStr, enemyItems);
+            setItemsFromStrings(itemsStr, p2Items); 
         }
     }
-
 
     private int parseIntSafe(String s, int def) {
         try { return Integer.parseInt(s.trim()); }
@@ -314,17 +290,23 @@ public class GameRoomFrame extends JFrame {
 
     private void setupKeyBindings() {
         JComponent c = getRootPane();
-        // AIM/FIRE 액션은 WHEN_IN_FOCUSED_WINDOW에서 처리
-        c.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke("DOWN"),  "AIM_SELF");
-        c.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke("UP"), "AIM_ENEMY");
         
-        // 스페이스바와 아이템 키는 Key Released 시점에만 동작하도록 수정하여 반복 호출 방지
+        String aimEnemyAction = "AIM_ENEMY";
+        String aimSelfAction  = "AIM_SELF";
+        
+        if ("P2".equals(myRole)) {
+            c.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke("UP"),   aimSelfAction);
+            c.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke("DOWN"), aimEnemyAction);
+        } else {
+            c.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke("UP"),   aimEnemyAction);
+            c.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke("DOWN"), aimSelfAction);
+        }
+        
         c.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0, true), "FIRE_ACTION");
         
-        // === [Item] 키패드 1-6 아이템 사용 키 바인딩 (Key Released) ===
         for (int i = 1; i <= 6; i++) {
             c.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
-                KeyStroke.getKeyStroke(KeyEvent.VK_0 + i, 0, true), // true = Key Released
+                KeyStroke.getKeyStroke(KeyEvent.VK_0 + i, 0, true), 
                 "USE_ITEM_" + i
             );
             int slot = i;
@@ -334,7 +316,6 @@ public class GameRoomFrame extends JFrame {
                 }
             });
         }
-        // === [Item] 끝 ===
         
         c.getActionMap().put("AIM_SELF", new AbstractAction() {
             @Override public void actionPerformed(java.awt.event.ActionEvent e) {
@@ -358,17 +339,19 @@ public class GameRoomFrame extends JFrame {
 
     private void tryUseItem(int slot) {
         
-        if (!myRole.equals(currentTurn) || gameOverBanner != null) return; 
-
+        boolean isMyTurn = myRole.equals(currentTurn);
+        String[] myItemArray = "P1".equals(myRole) ? p1Items : p2Items;
         int myHp = "P1".equals(myRole) ? hp1 : hp2;
-        String item = myItems[slot - 1];
+        String item = myItemArray[slot - 1]; 
         
-        // 배열 경계 및 아이템 유무 체크
-        if (slot < 1 || slot > myItems.length || "-".equals(item)) {
+        if (slot < 1 || slot > myItemArray.length || "-".equals(item)) {
              return;
         }
+
+        if ("H".equals(item) && !isMyTurn) return;
         
-        // [수정] Heal 아이템 사용 전 최대 HP 체크 (클라이언트 측 검증)
+        if (gameOverBanner != null) return; 
+        
         if ("H".equals(item)) {
             if (myHp >= MAX_HP) {
                  JOptionPane.showMessageDialog(this, "HP가 가득 차서 Heal을 사용할 수 없습니다.");
@@ -376,32 +359,30 @@ public class GameRoomFrame extends JFrame {
             }
         }
         
-        // [핵심 수정] 클라이언트 UI에서 돋보기를 포함한 모든 아이템 즉시 제거
-        // 돋보기 (S)도 사용 즉시 사라지게 합니다.
-        myItems[slot - 1] = "-"; 
+        myItemArray[slot - 1] = "-"; 
              
         if ("B".equals(item)) {
            bombStatus = "강화!!! (다음 발사 실탄 데미지 2배)";
         }
         
-        canvas.repaint(); // UI 즉시 업데이트
-        
-        // [핵심 수정] 서버로 명령 전송
+        canvas.repaint(); 
         net.send(Protocol.USE_ITEM + " SLOT=" + slot);
     }
 
     private void updateGunAngleForCurrentTurn() {
         String targetAim;
-        // 총구는 현재 턴인 플레이어가 조준한 곳으로 향합니다.
         if ("P1".equals(currentTurn)) {
             targetAim = p1Aim;
         } else {
             targetAim = p2Aim;
         }
         
-        targetAngleRad = "ENEMY".equals(targetAim) ? -Math.PI/2 : Math.PI/2;
+        if ("P1".equals(currentTurn)) {
+            targetAngleRad = "ENEMY".equals(targetAim) ? -Math.PI/2 : Math.PI/2;
+        } else {
+            targetAngleRad = "ENEMY".equals(targetAim) ? Math.PI/2 : -Math.PI/2;
+        }
         
-        // [핵심 복원] 목표 각도만 설정하고 타이머는 무조건 시작합니다.
         if (!rotTimer.isRunning()) rotTimer.start();
         
         canvas.repaint();
@@ -425,18 +406,15 @@ public class GameRoomFrame extends JFrame {
 
 
         RoomCanvas() {
-            // *** 이미지 로드 경로/파일명 복구 ***
             ImageIcon bgIcon   = ImageLoader.load("images/room_bg.png");
             ImageIcon p1Icon   = ImageLoader.load("images/player1.png");
             ImageIcon p2Icon   = ImageLoader.load("images/player2.png");
             ImageIcon gunIcon  = ImageLoader.load("images/gun.png");
             ImageIcon lifeIcon = ImageLoader.load("images/life.png");
             
-            // === [Item] 아이템 이미지 로드 ===
-            ImageIcon healIcon   = ImageLoader.load("images/Heal.png");
+            ImageIcon healIcon   = ImageLoader.load("images/Heal.png"); 
             ImageIcon searchIcon = ImageLoader.load("images/Search.png");
             ImageIcon bombIcon   = ImageLoader.load("images/bomb.png");
-            // === [Item] 끝 ===
 
             bg     = (bgIcon == null)  ? null : bgIcon.getImage();
             p1Img  = (p1Icon == null)  ? null : p1Icon.getImage();
@@ -444,11 +422,9 @@ public class GameRoomFrame extends JFrame {
             gunImg = (gunIcon == null) ? null : gunIcon.getImage();
             lifeImg= (lifeIcon == null)? null : lifeIcon.getImage();
             
-            // === [Item] 아이템 이미지 변수 할당 ===
-            healImg  = (healIcon == null) ? null : healIcon.getImage();
+            healImg   = (healIcon == null) ? null : healIcon.getImage();
             searchImg = (searchIcon == null) ? null : searchIcon.getImage();
-            bombImg  = (bombIcon == null) ? null : bombIcon.getImage();
-            // === [Item] 끝 ===
+            bombImg   = (bombIcon == null) ? null : bombIcon.getImage();
         }
 
 
@@ -456,47 +432,36 @@ public class GameRoomFrame extends JFrame {
             super.paintComponent(g);
             int w = getWidth(), h = getHeight();
 
-            // 배경
             if (bg != null) g.drawImage(bg, 0, 0, w, h, this);
             else {
                 g.setColor(new Color(40, 40, 40));
                 g.fillRect(0, 0, w, h);
             }
 
-            // 크기 & 여백
-            final int imgW = 180, imgH = 180;
-            final int marginTop = 40;
-            final int marginBottom = 40;
+            // 캐릭터 크기: 화면 너비의 20%
+            double avatarScale = 0.20; 
+            int imgW = (int)(w * avatarScale);
+            int imgH = imgW; // 정사각형
+
+            // 상하단 여백 0.5% (최소화하여 위아래 끝으로 밀착)
+            int marginY = (int)(h * 0.005);
+            
             int centerX = (w - imgW) / 2;
 
-            // === [Req 2] 내/상대 위치 고정 ===
-            Image myImg, enemyImg;
-            int myX, myY, enemyX, enemyY;
+            int p1X = centerX;
+            int p1Y = h - imgH - marginY; 
             
-            int pBottomX = centerX;
-            int pBottomY = h - imgH - marginBottom;
-            int pTopX = centerX;
-            int pTopY = marginTop;
+            int p2X = centerX;
+            int p2Y = marginY;
 
-            if ("P1".equals(myRole)) {
-                myImg = p1Img;     enemyImg = p2Img;
-                myX = pBottomX;    myY = pBottomY;
-                enemyX = pTopX;    enemyY = pTopY;
-            } else { // myRole is P2
-                myImg = p2Img;     enemyImg = p1Img;
-                myX = pBottomX;    myY = pBottomY;
-                enemyX = pTopX;    enemyY = pTopY;
-            }
+            if (p2Img != null) g.drawImage(p2Img, p2X, p2Y, imgW, imgH, this);
+            if (p1Img != null) g.drawImage(p1Img, p1X, p1Y, imgW, imgH, this);
             
-            // Draw Enemy: 위
-            if (enemyImg != null) g.drawImage(enemyImg, enemyX, enemyY, imgW, imgH, this);
-            // Draw Me: 아래
-            if (myImg != null) g.drawImage(myImg, myX, myY, imgW, imgH, this);
-            // === [Req 2] 끝 ===
-
-
-            // ===== 총(회전) =====
-            final int gunW = 420, gunH = 420;
+            // [수정] 총 크기를 화면 너비의 22%로 줄여서 P2와의 간격 확보 (0.3 -> 0.22)
+            double gunRatio = 0.22; 
+            int gunW = (int)(w * gunRatio);
+            int gunH = (gunImg != null) ? (gunImg.getHeight(this) * gunW / gunImg.getWidth(this)) : gunW;
+            
             int gunX = (w - gunW) / 2;
             int gunY = (h - gunH) / 2;
 
@@ -512,69 +477,77 @@ public class GameRoomFrame extends JFrame {
                 g2.dispose();
             }
 
-            // HUD(턴/HP/탄/샷/아이템)
-            drawHUD(g, w, h, myX, myY, enemyX, enemyY, imgW, imgH);
+            drawHUD(g, w, h, p1X, p1Y, p2X, p2Y, imgW, imgH);
         }
 
-        private void drawHUD(Graphics g, int w, int h, int myX, int myY, int enemyX, int enemyY, int imgW, int imgH) {
+        private void drawHUD(Graphics g, int w, int h, int p1X, int p1Y, int p2X, int p2Y, int imgW, int imgH) {
             
             Color originalColor = g.getColor(); 
             Font oldFont = g.getFont();
             
-            // [Req 2 & 4] 폰트 정의
-            Font bannerFont = oldFont.deriveFont(Font.BOLD, oldFont.getSize() * 2.0f);
-            Font ammoFont = oldFont.deriveFont(Font.BOLD, oldFont.getSize() * 1.5f);
+            // 폰트 크기 (1.4%)
+            int baseFontSize = Math.max(12, (int)(w * 0.014));
+            Font bannerFont = oldFont.deriveFont(Font.BOLD, baseFontSize * 2.0f);
+            Font ammoFont   = oldFont.deriveFont(Font.BOLD, baseFontSize * 1.3f);
 
-            // 상단 배너
             String turnPlayerName = "P1".equals(currentTurn) ? p1Name : p2Name;
             String banner = (gameOverBanner != null) ? gameOverBanner : (turnPlayerName + "'s Turn");
             
+            // 턴 알림 텍스트: 왼쪽 상단 고정
             g.setFont(bannerFont); 
             g.setColor(Color.WHITE);
-            int bannerWidth = g.getFontMetrics().stringWidth(banner);
-            g.drawString(banner, w/2 - bannerWidth/2, 30); 
+            // 위치: x=20, y=높이의 6% 지점
+            g.drawString(banner, 20, (int)(h * 0.06)); 
             g.setFont(oldFont); 
 
-            // HP 아이콘 크기
-            int lifeW = 50, lifeH = 50, gap = 8;
+            // 아이콘/하트 크기 (캐릭터의 18%)
+            int lifeW = (int)(imgW * 0.18); 
+            int lifeH = lifeW; 
+            int gap = (int)(w * 0.008); 
 
-            // HP 및 닉네임 표시
-            int myHp = "P1".equals(myRole) ? hp1 : hp2;
-            int enemyHp = "P1".equals(myRole) ? hp2 : hp1;
-            String myDisplayName = myName; 
-            String enemyDisplayName = "P1".equals(myRole) ? p2Name : p1Name;
+            int p1Hp = hp1;
+            int p2Hp = hp2;
+            String p1DisplayName = p1Name; 
+            String p2DisplayName = p2Name;
 
-            // --- 위 플레이어(Enemy) 닉네임 + HP ---
-            int enemyHpX = enemyX + imgW + 10;
-            int enemyHpY = enemyY + 14; 
+            int textGapX = (int)(w * 0.01); 
+
+            // --- P2 플레이어(위) HUD ---
+            int p2UiX = p2X + imgW + textGapX;
+            int p2NameY = p2Y + (int)(imgH * 0.2); 
             
             g.setFont(ammoFont); 
             g.setColor(new Color(255, 100, 100)); 
-            g.drawString(enemyDisplayName, enemyHpX, enemyHpY + 5); 
+            g.drawString(p2DisplayName, p2UiX, p2NameY); 
             
             g.setFont(oldFont);
             g.setColor(Color.WHITE);
-            int enemyLifeBottomY = enemyHpY + 20 + lifeH - 16;
-            drawLives(g, enemyHpX, enemyLifeBottomY, enemyHp, lifeW, lifeH, gap);
-            // 상대방 아이템 가방 표시
-            drawItemBag(g, enemyHpX, enemyLifeBottomY + gap + 10, enemyItems, lifeW, lifeH, gap, false);
+            
+            int p2LifeY = p2NameY + (int)(h * 0.015); 
+            drawLives(g, p2UiX, p2LifeY, p2Hp, lifeW, lifeH, gap);
+            
+            int p2ItemY = p2LifeY + lifeH + gap;
+            drawItemBag(g, p2UiX, p2ItemY, p2Items, lifeW, lifeH, gap, "P2".equals(myRole));
 
 
-            // --- 아래 플레이어(Me) 닉네임 + HP ---
-            int myHpX = myX + imgW + 10;
-            int myHpY = myY + imgH - 10;
-
+            // --- P1 플레이어(아래) HUD ---
+            int p1UiX = p1X + imgW + textGapX;
+            
+            // P1 이름 위치 (캐릭터 상단에서 40% 내려온 지점)
+            int p1NameY = p1Y + (int)(imgH * 0.4); 
+            
             g.setFont(ammoFont); 
             g.setColor(Color.CYAN); 
-            g.drawString(myDisplayName, myHpX, myHpY - 30); 
-
+            g.drawString(p1DisplayName, p1UiX, p1NameY); 
+            
             g.setFont(oldFont);
             g.setColor(Color.WHITE);
-            int myLifeBottomY = myHpY;
-            drawLives(g, myHpX, myLifeBottomY, myHp, lifeW, lifeH, gap);
-            // 내 아이템 가방 표시
-            drawItemBag(g, myHpX, myLifeBottomY + gap + 10, myItems, lifeW, lifeH, gap, true);
-
+            
+            int p1LifeY = p1NameY + (int)(h * 0.015); 
+            drawLives(g, p1UiX, p1LifeY, p1Hp, lifeW, lifeH, gap);
+            
+            int p1ItemY = p1LifeY + lifeH + gap;
+            drawItemBag(g, p1UiX, p1ItemY, p1Items, lifeW, lifeH, gap, "P1".equals(myRole));
 
             // 좌하단: AIM
             String aimText = "AIM: " + currentAim;
@@ -610,7 +583,6 @@ public class GameRoomFrame extends JFrame {
             g.setColor(Color.LIGHT_GRAY); 
             g.drawString(blankText, w - blankW - 10, h - 10);
 
-            // 폰트와 색상을 원래대로 복구
             g.setFont(oldFont);
             g.setColor(originalColor);
         }
@@ -618,7 +590,7 @@ public class GameRoomFrame extends JFrame {
         private void drawLives(Graphics g, int x, int y, int hp, int lifeW, int lifeH, int gap) {
             for (int i = 0; i < hp; i++) { 
                 int drawX = x + i * (lifeW + gap);
-                int drawY = y - lifeH + 16;
+                int drawY = y;
                 if (lifeImg != null) {
                     g.drawImage(lifeImg, drawX, drawY, lifeW, lifeH, this);
                 } else {
@@ -627,22 +599,20 @@ public class GameRoomFrame extends JFrame {
             }
         }
         
-        // 아이템 가방 그리기
         private void drawItemBag(Graphics g, int x, int y, String[] items, int itemW, int itemH, int gap, boolean drawIndex) {
             Font oldFont = g.getFont();
             
-            int slotW = 40, slotH = 40;
-            int slotGap = 5;
+            int slotW = itemW; 
+            int slotH = itemH;
+            int slotGap = gap;
             
             for (int i = 0; i < 6; i++) {
                 int drawX = x + i * (slotW + slotGap);
                 int drawY = y;
                 
-                // 1. 빈 슬롯 테두리 그리기
                 g.setColor(Color.DARK_GRAY);
                 g.drawRect(drawX, drawY, slotW, slotH);
                 
-                // 2. 아이템 이미지 그리기
                 String item = (i < items.length) ? items[i] : "-";
                 Image itemImg = null;
                 
@@ -657,12 +627,11 @@ public class GameRoomFrame extends JFrame {
                     g.drawImage(itemImg, drawX + 3, drawY + 3, slotW - 6, slotH - 6, this);
                 }
                 
-                // 3. 아이템 인덱스 표시 (내 것만)
                 if (drawIndex) {
-                    g.setFont(oldFont.deriveFont(Font.BOLD, 14f));
+                    g.setFont(oldFont.deriveFont(Font.BOLD, (float)(itemH * 0.4))); 
                     g.setColor(Color.YELLOW);
                     String indexStr = String.valueOf(i + 1);
-                    g.drawString(indexStr, drawX + 2, drawY + 14);
+                    g.drawString(indexStr, drawX + 2, drawY + (int)(slotH * 0.35));
                     g.setFont(oldFont);
                 }
             }
@@ -682,11 +651,10 @@ public class GameRoomFrame extends JFrame {
             area.setEditable(false);
             add(new JScrollPane(area), BorderLayout.CENTER);
             add(input, BorderLayout.SOUTH);
-            input.addActionListener(new java.awt.event.ActionListener() {
-                @Override public void actionPerformed(java.awt.event.ActionEvent e) { doSend(); }
-            });
+            input.addActionListener(e -> doSend());
             setSize(560, 420);
             setLocationRelativeTo(owner);
+            area.setText(chatLog.toString());
         }
 
         void appendLine(String s, boolean autoScroll) {

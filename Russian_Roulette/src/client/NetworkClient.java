@@ -42,6 +42,15 @@ public class NetworkClient {
     }
 
     public void send(String line) {
-        out.println(line);
+        if (out != null) out.println(line);
+    }
+    
+    // [NEW] close method
+    public void close() {
+        try {
+            if (socket != null && !socket.isClosed()) {
+                socket.close();
+            }
+        } catch (IOException ignored) {}
     }
 }
