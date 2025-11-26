@@ -62,19 +62,21 @@
 
     src/
      ├─ server/
-     │   ├─ ServerMain.java        // 서버 시작, 클라이언트 2명 대기
+     │   ├─ ServerGuiMain.java        // 서버 시작, 클라이언트 2명 대기
      │   ├─ Room.java              // 게임 로직 (턴, HP, 탄창 등)
      │   ├─ ClientHandler.java     // 클라이언트별 스레드
-     │   ├─ GunChamber.java        // 탄창(실탄/공탄) 랜덤 생성
-     │   └─ Protocol.java          // 통신 명령어 정의
+     │   ├─ ServerFrame.java
+     │   ├─ Protocol.java          // 통신 명령어 정의
+     │   └─ ServerCore.java
      └─ client/
          ├─ ClientMain.java        // 클라이언트 진입점
-         ├─ StartFrame.java        // IP/Port/이름 입력 UI
-         ├─ GameFrame.java         // 메인 게임 창
+         ├─ GameRoomFrame.java        // IP/Port/이름 입력 UI
+         ├─ ImageLoader.java
+         ├─ RoomFrame.java         // 메인 게임 창
+         ├─ StartFrame.java
          └─ NetworkClient.java     // 서버와 송수신 관리
     resources/
-     ├─ images/
-     └─ sound/
+     └─ images/
 
 ------------------------------------------------------------------------
 
