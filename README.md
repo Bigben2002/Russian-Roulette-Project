@@ -71,9 +71,7 @@
          ├─ ClientMain.java        // 클라이언트 진입점
          ├─ StartFrame.java        // IP/Port/이름 입력 UI
          ├─ GameFrame.java         // 메인 게임 창
-         ├─ NetworkClient.java     // 서버와 송수신 관리
-         ├─ HudPanel.java          // 상단 정보 (TURN/HP/AMMO)
-         └─ TablePanel.java        // 중앙 조준/발사 표시
+         └─ NetworkClient.java     // 서버와 송수신 관리
     resources/
      ├─ images/
      └─ sound/
