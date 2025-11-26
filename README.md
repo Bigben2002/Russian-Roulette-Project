@@ -1,149 +1,137 @@
-
-# 🎲 Russian Roulette – 2인 네트워크 게임 (Java / Socket / Swing)
-
-> **과목**: 네트워크 프로그래밍  
-> **주제**: 2인용 온라인 러시안 룰렛 게임 (TCP 소켓 + Swing GUI)  
-> **언어 / 환경**: Java 17~21, Eclipse, TCP Socket, Swing
-팀원 <br>
-이경석 - 2171073 <br>
-김준현 - 2171062
- 
+# 🎲 Russian Roulette – 2인 네트워크 게임  
+Java · TCP Socket · Swing GUI
 
 ---
 
-## 1. 게임 개요
+## 📌 프로젝트 개요
 
-두 명의 플레이어가 **같은 서버에 접속**해,  
-서버가 관리하는 러시안 룰렛 규칙에 따라 서로에게 총을 쏘며 **상대 HP를 0**으로 만들면 승리하는 네트워크 게임입니다.
+이 프로젝트는 **2명의 플레이어가 TCP 서버에 접속해**  
+서로에게 총을 쏘며 상대방 HP를 0으로 만들면 승리하는  
+**온라인 러시안 룰렛 게임**입니다.
 
-- 서버는 **게임의 두뇌** 역할 (방/턴/HP/탄창 관리)
-- 클라이언트는 **눈과 손** 역할 (화면 표시 + 입력 전달)
-- 같은 Wi-Fi / LAN 환경에서 IP + Port를 입력해 서로 접속
-
----
-
-## 2. 기본 규칙
-
-### 2-1. HP & 승리 조건
-
-- 각 플레이어는 **HP 5**로 시작
-- 상대방 HP를 **0으로 만들면 승리**
-- HP는 실탄 발사에만 영향을 받음
-
-### 2-2. 탄창(실린더) 규칙
-
-- 6칸짜리 실린더에 **실탄(Bullet)** 과 **공탄(Blank)** 이 랜덤 배치
-- 예: `[B, 0, B, 0, 0, B]` (서버에서 랜덤 생성)
-- 6발을 모두 사용하면 다시 6발을 랜덤으로 재장전
-
-### 2-3. 턴(Turn) 및 심리전 규칙
-
-| 조준 대상 (AIM) | 탄환 결과 (Result) | 효과 (Effect)        | 턴 전환 (Turn)   |
-|-----------------|--------------------|----------------------|------------------|
-| 상대 (Enemy)    | 실탄 (Bullet)      | 상대 HP -1           | 턴 교대          |
-| 상대 (Enemy)    | 공탄 (Blank)       | 아무 일도 없음      | 턴 교대          |
-| 자신 (Self)     | 실탄 (Bullet)      | 내 HP -1 (**최악**) | 턴 교대          |
-| 자신 (Self)     | 공탄 (Blank)       | 아무 일도 없음      | **턴 유지 (AGAIN)** |
-
-> **핵심 포인트**  
-> `Self + Blank → 턴 유지` 규칙 때문에,  
-> 플레이어는 “공탄일 것”을 믿고 자신에게 쏴서 턴을 유지할지,  
-> 그대로 상대에게 쏴서 마무리할지를 계속 고민해야 합니다.
+- 서버 = 게임의 **두뇌 (HP/턴/탄창 관리)**
+- 클라이언트 = **눈과 손 (UI, 입력, 채팅)**
+- 6발 랜덤 실린더 + SELF 공탄 시 턴 유지 → **전략적 심리전**
 
 ---
 
-## 3. 폴더 구조
+# 🎮 게임 규칙
+
+## 🩸 HP  
+- 시작 HP: **5**
+- 상대 HP를 **0**으로 만들면 승리
+
+## 🔫 실린더 규칙  
+- 6칸 배열  
+- `1 = 실탄`, `0 = 공탄`  
+- 6발 소진 시 자동 재장전 (서버에서 새 실린더 생성)
+
+## 🔁 턴(Turn) & 심리전 규칙
+
+| 조준 대상 | 탄환 결과 | 효과 | 턴 전환 |
+|----------|-----------|------|---------|
+| Enemy    | Bullet    | 상대 HP -1 | 턴 교대 |
+| Enemy    | Blank     | 변화 없음 | 턴 교대 |
+| Self     | Bullet    | 내 HP -1 | 턴 교대 |
+| Self     | Blank     | 변화 없음 | **턴 유지 (AGAIN)** |
+
+> ⭐ SELF + BLANK = **턴 유지**  
+> 턴을 유지하기 위해 자기 자신에게 공탄을 기대하고 쏘는 **심리전이 핵심**
+
+---
+
+# 📁 폴더 구조
 
 ```text
 src/
- ├─ server/                 # 서버: 게임의 '두뇌'
- │   ├─ ServerGuiMain.java  # 서버 진입점 (main) - GUI 실행
- │   ├─ ServerFrame.java    # 서버 제어 GUI (포트 입력, Start/Stop, 로그 출력)
- │   ├─ ServerCore.java     # ServerSocket listen + 클라이언트 accept + Room 생성
- │   ├─ ClientHandler.java  # 클라이언트 1명당 1개씩 생성되는 통신 스레드
- │   ├─ Room.java           # ★ 핵심: 방, 플레이어 2명 관리, (확장: 턴/HP/탄창 로직)
- │   └─ Protocol.java       # 통신 명령어 상수 정의 (텍스트 프로토콜)
+ ├─ server/                  # 서버: 게임의 '두뇌'
+ │   ├─ ServerGuiMain.java   # 서버 진입점 (GUI 실행)
+ │   ├─ ServerFrame.java     # 서버 제어 GUI (Start/Stop/로그)
+ │   ├─ ServerCore.java      # ServerSocket + acceptLoop
+ │   ├─ ClientHandler.java   # 클라이언트 1명당 통신 스레드
+ │   ├─ Room.java            # ★ 핵심: 방/턴/HP/탄창/승패 로직
+ │   └─ Protocol.java        # 문자열 기반 통신 명령어
  │
- └─ client/                 # 클라이언트: 게임의 '눈과 손'
-     ├─ ClientMain.java     # 클라이언트 진입점 (main) - StartFrame 실행
-     ├─ StartFrame.java     # IP/Port/Name 입력 창
-     ├─ RoomFrame.java      # 대기실(Lobby), 상대 접속/READY 상태 표시
-     ├─ GameRoomFrame.java  # ★ 메인 게임 화면 (그래픽 + 입력 처리 + 채팅)
-     ├─ NetworkClient.java  # 서버 송수신 전담 (소켓 + 리더 스레드)
-     └─ ImageLoader.java    # 리소스 이미지 로딩 유틸리티
-4. 각 클래스 역할 정리
-4-1. server 패키지
-ServerGuiMain.java
-public static void main(String[] args) 를 가진 서버 시작점
+ └─ client/                  # 클라이언트: 게임의 '눈과 손'
+     ├─ ClientMain.java      # 클라이언트 진입점
+     ├─ StartFrame.java      # IP/Port/Name 입력 화면
+     ├─ RoomFrame.java       # 대기실(Lobby)
+     ├─ GameRoomFrame.java   # ★ 게임방 UI + 채팅 + 입력 처리
+     ├─ NetworkClient.java   # 서버와의 송수신 담당
+     └─ ImageLoader.java     # 이미지 로딩 유틸
+🏗 서버 구조 (server/)
+🔹 ServerGuiMain.java
+서버 프로그램의 메인 진입점
 
-내부에서 ServerFrame 을 생성하여 GUI 서버 창을 띄움
+Swing 기반 ServerFrame GUI를 실행
 
-ServerFrame.java
-서버를 컨트롤하는 Swing GUI
+🔹 ServerFrame.java
+서버 UI 화면
 
-주요 기능
+포트 입력 필드
 
-포트 번호 입력 (예: 7777)
+Start / Stop 버튼
 
-Start/Stop 버튼으로 서버 시작 / 종료
+서버 로그 출력(TextArea)
 
-서버 로그 출력 (접속, 에러, 방 생성 등)
+서버 종료/예외 처리 GUI 지원
 
-ServerCore.java
-실제 ServerSocket 을 열어 클라이언트를 받는 엔진
+🔹 ServerCore.java
+서버의 중심 엔진
 
-주요 역할
-
-start(port):
-
-지정 Port로 ServerSocket 생성
+지정 포트에 대해 ServerSocket 열기
 
 별도 스레드에서 acceptLoop() 실행
 
-acceptLoop():
+첫 번째 접속 → P1
 
-클라이언트 연결을 기다리며, 두 명이 모이면 Room 을 생성
+두 번째 접속 → P2
 
-각 소켓마다 ClientHandler 생성 → 스레드로 실행
+두 명이 모이면:
 
-Room 에 두 클라이언트를 등록하고, 방 생성 / 입장 메시지 브로드캐스트
+Room 생성
 
-ClientHandler.java
-클라이언트 1명당 1개씩 생성되는 스레드
+ClientHandler 2개 생성 후 스레드 실행
 
-역할
+ROOM_CREATED, ENTER_ROOM 방송
 
-소켓의 입력 스트림으로부터 한 줄씩 읽기
+🔹 ClientHandler.java
+클라이언트 1명당 1 스레드
 
-프로토콜에 따라:
+기능:
 
-CHAT ... → Room 에 전달
+클라이언트에서 오는 문자열 메시지를 readLine()으로 수신
 
-(향후) FIRE, AIM, READY 등도 처리
+메시지가 CHAT, READY, 이후 확장될 AIM, FIRE인지 판별
 
-Room 이 보내는 메시지를 자신의 클라이언트에게 전송
+해당 메시지를 Room 으로 전달
 
-Room.java
-두 클라이언트를 하나의 게임 방으로 묶는 핵심 클래스
+Room이 보내는 메시지를 클라이언트에게 write
 
-현재 역할
+🔹 Room.java
+방(2인)을 관리하는 핵심 로직 클래스
 
-방에 속한 두 명의 핸들러 관리
+P1, P2 핸들러 관리
 
-ROOM_CREATED, ROOM_STATUS, ENTER_ROOM, CHAT 등 브로드캐스트
+브로드캐스트 기능 (ROOM_STATUS, ROOM_CREATED, CHAT 등)
 
-확장 예정
+추후 확장:
 
-턴(누가 쏠 차례인지) 관리
+currentTurn
 
-HP, 탄창 배열(6칸), 실탄/공탄 판정
+HP 관리
 
-승리/패배 시 게임 종료 브로드캐스트
+탄창 배열(6칸)
 
-Protocol.java
-서버와 클라이언트 사이에 오가는 문자열 상수를 모아둔 클래스
+실탄/공탄 판정
 
-예시
+승패 판정
+
+FIRE_RESULT, TURN, UPDATE 등 추가 프로토콜 처리
+
+🔹 Protocol.java
+문자열 기반 프로토콜 정의
+예:
 
 HELLO
 
@@ -155,260 +143,182 @@ ENTER_ROOM
 
 CHAT
 
-(추가 예정) TURN, AIM, FIRE, RESULT, RELOAD 등
+(추가 예정)
 
-4-2. client 패키지
-ClientMain.java
-클라이언트 프로그램의 시작점
+AIM
 
-StartFrame 을 띄워 접속 정보 입력 UI 를 보여줌
-
-StartFrame.java
-접속 정보 입력 화면
-
-Host/IP
-
-Port
-
-Name (게임 내 닉네임)
-
-Connect / Start 버튼 클릭 시:
-
-NetworkClient 를 통해 서버에 접속
-
-성공 시 RoomFrame 으로 화면 전환
-
-RoomFrame.java (로비 / 대기실)
-두 플레이어가 모일 때까지 상태를 보여주는 화면
-
-표시 내용
-
-현재 대기 인원 (WAITING 1/2, WAITING 2/2 등)
-
-P1 / P2 이름
-
-서버에서 수신하는 메시지
-
-ROOM_STATUS ... → 상태 라벨 갱신
-
-ROOM_CREATED ... → P1/P2 이름 세팅
-
-ENTER_ROOM ... → GameRoomFrame 으로 전환
-
-GameRoomFrame.java (메인 게임 화면)
-실제 플레이가 진행되는 화면
-
-구성 요소
-
-배경 / 캐릭터 이미지 (위: 상대, 아래: 나) – RoomCanvas 에서 그림
-
-내 이름, 상대 이름, (확장) HP/턴/탄창 HUD
-
-채팅 버튼 (누르면 채팅창 오픈)
-
-현재 구현 중심
-
-채팅 송수신
-
-확장 예정
-
-키보드 입력 (조준 방향, 발사 키)
-
-서버와의 턴/HP/탄창 동기화
-
-NetworkClient.java
-소켓 통신을 담당하는 클라이언트 네트워크 모듈
-
-역할
-
-서버와 TCP 연결 생성
-
-서버에서 오는 텍스트 라인을 별도 스레드에서 계속 읽기
-
-읽은 라인을 콜백(Consumer<String>) 으로 UI에 전달
-
-클라이언트가 입력한 명령/채팅을 서버에 전송
-
-ImageLoader.java
-/images/... 같은 리소스 경로에서 이미지를 읽어오는 유틸
-
-Swing ImageIcon / BufferedImage 로 변환해 UI에서 사용
-
-5. 실행 흐름 (호출 순서)
-5-1. 서버 실행 플로우
-ServerGuiMain.main()
-
-ServerFrame 생성 및 표시
-
-사용자가 포트 입력 후 Start 버튼 클릭
-
-ServerFrame → ServerCore.start(port) 호출
-
-ServerCore.start(port)
-
-ServerSocket 생성
-
-acceptLoop() 를 새 스레드로 실행
-
-acceptLoop()
-
-첫 번째 클라이언트 접속: P1으로 등록
-
-두 번째 클라이언트 접속: P2로 등록
-
-Room + ClientHandler 2개 생성
-
-Room 에서 ROOM_CREATED, ENTER_ROOM 브로드캐스트
-
-5-2. 클라이언트 실행 플로우
-ClientMain.main()
-
-StartFrame 생성 및 표시
-
-사용자가 IP / Port / Name 입력 → Connect
-
-StartFrame → NetworkClient 생성 + 서버 접속
-
-성공 시 RoomFrame 으로 전환
-
-RoomFrame
-
-서버에서 오는:
-
-ROOM_STATUS → 상태 텍스트 업데이트
-
-ROOM_CREATED → P1 / P2 이름 표시
-
-ENTER_ROOM → GameRoomFrame 생성 후 화면 전환
-
-GameRoomFrame
-
-서버에서 오는 다양한 메시지 처리
-
-채팅 버튼 / (추가) 키보드 입력 처리
-
-6. 채팅 기능 흐름
-클라이언트 → 서버
-
-사용자가 채팅창에 메시지를 입력 후 전송
-
-NetworkClient.send("CHAT " + message) 호출
-
-서버 (ClientHandler)
-
-한 줄 읽기 → "CHAT " 으로 시작하는지 확인
-
-Room.broadcastChat(senderName, message) 호출
-
-서버 (Room)
-
-두 플레이어 모두에게
-CHAT <이름>: <내용> 형식으로 브로드캐스트
-
-클라이언트 수신
-
-NetworkClient 리더 스레드 → UI 콜백
-
-GameRoomFrame / 채팅 창에서 메시지 추가
-
-7. 러시안 룰렛 게임 로직 설계 (확장 포인트)
-현재 코드 상태
-
-네트워크 연결, 2인 매칭, 로비 → 게임방 전환, 채팅 기능 구현 완료
-
-HP / 탄창 / 턴 / 승패 로직은 Room 중심으로 추가 예정
-
-7-1. 상태 관리 주체
-Room (서버) 에서 다음 상태를 관리:
-
-currentTurn (현재 턴인 플레이어)
-
-hpP1, hpP2
-
-cylinder[] (길이 6, 0: 공탄, 1: 실탄)
-
-currentIndex (다음에 발사될 칸)
-
-클라이언트는 “표시만” 담당:
-
-서버에서 보낸 STATUS/UPDATE 메시지를 받아 HP, 턴, 탄 수 등을 화면에 반영
-
-7-2. 예상 프로토콜 확장 예시
-text
-코드 복사
-# 클라이언트 -> 서버
-AIM SELF
-AIM ENEMY
 FIRE
 
-# 서버 -> 클라이언트
-TURN P1
-TURN P2
-HP P1=4 P2=5
-FIRE_RESULT SELF BLANK KEEP_TURN
-FIRE_RESULT ENEMY BULLET SWITCH_TURN
-WINNER P1
-LOSER P2
-8. 실행 방법
-8-1. 준비 사항
-JDK 17 이상 (JDK 21 사용 가능)
+RESULT
 
-Eclipse 또는 IntelliJ / VS Code 등 Java IDE
+TURN
 
-같은 네트워크(LAN / Wi-Fi)에서 서버 IP를 알고 있을 것
+WINNER
 
-8-2. 서버 실행
-IDE에서 ServerGuiMain 을 Java Application 으로 실행
+🖥 클라이언트 구조 (client/)
+🔹 ClientMain.java
+클라이언트 실행 진입점
 
-서버 GUI 창에서:
+StartFrame 실행
 
-Port: 예) 7777
+🔹 StartFrame.java
+IP, Port, Name 입력 필드
 
-Start 버튼 클릭
+“Connect / Start” 버튼
 
-로그 창에 Listening on 7777 같은 메시지가 보이면 준비 완료
+입력 완료 → 서버 연결 → RoomFrame 으로 즉시 전환
 
-8-3. 클라이언트 실행
-두 대(또는 한 대에서 2번) ClientMain 을 Java Application 으로 실행
+🔹 RoomFrame.java (대기실)
+서버로부터 수신된 상태 표시:
 
-각 클라이언트의 StartFrame 에서:
+ROOM_STATUS
 
-Host: 서버 IP (같은 PC면 127.0.0.1)
-
-Port: 서버 포트 (예: 7777)
-
-Name: 원하는 닉네임
-
-Connect / Start 버튼 클릭 → RoomFrame 이동
+ROOM_CREATED
 
 두 명이 모두 접속하면:
 
-ROOM_STATUS, ROOM_CREATED, ENTER_ROOM 메시지를 따라
+서버 → ENTER_ROOM 전송
 
-자동으로 GameRoomFrame 으로 전환
+클라이언트 → 자동으로 GameRoomFrame 이동
 
-9. 팀 정보
-👤 이경석 – 2171073
+🔹 GameRoomFrame.java
+게임 플레이가 진행되는 메인 화면
+구성 요소:
 
-👤 김준현 – 2171062
+RoomCanvas (배경 + 캐릭터 + 이름)
 
-10. 요약
-이 프로젝트는 TCP 소켓 + Swing GUI 를 이용한 2인용 러시안 룰렛 게임입니다.
+Chat 버튼
 
-현재:
+조작키 안내 버튼
 
-서버/클라이언트 구조
+이후 확장: HUD(HP/턴/탄창)
 
-2인 매칭 로비
+현재 구현:
 
-게임방 화면
+채팅 송수신
 
-채팅 기능
-이 동작하도록 구현되어 있습니다.
+서버에서 오는 메시지 실시간 반영
 
-앞으로:
+🔹 NetworkClient.java
+서버와 TCP 연결 담당
 
-턴/HP/탄창/승패 를 Room 중심으로 추가하면,
+writeLine() → 메시지 서버로 전송
 
-실제 러시안 룰렛 룰(SELF+BLANK 턴 유지)이 완성됩니다.
- 
+readLine() 스레드 → UI 콜백으로 전달
+
+Swing Thread-safe 처리(SwingUtilities.invokeLater)
+
+🔹 ImageLoader.java
+/images/... 폴더의 리소스를
+BufferedImage 로 로딩해 UI에서 사용
+
+🔄 전체 동작 흐름
+🚀 1) 서버 실행
+ServerGuiMain 실행
+
+포트 입력 → Start
+
+로그 창에 “Listening…” 출력
+
+서버가 클라이언트 접속 대기
+
+🎮 2) 클라이언트 접속
+ClientMain 실행
+
+Host / Port / Name 입력
+
+서버 연결 성공 → ROOM_STATUS 수신
+
+RoomFrame 으로 이동하여 상대방 대기
+
+🧍‍♂️🧍‍♀️ 3) 매칭(대기실)
+첫 번째 플레이어 → WAITING 1/2
+
+두 번째 플레이어 → READY 2/2
+
+서버:
+
+ROOM_CREATED P1=<name> P2=<name>
+
+ENTER_ROOM
+
+클라이언트: GameRoomFrame으로 전환
+
+💬 4) 채팅 기능 흐름
+클라이언트 → 서버
+nginx
+코드 복사
+CHAT 메시지내용
+서버(ClientHandler) → Room
+scss
+코드 복사
+Room.broadcastChat(sender, msg)
+Room → 모든 클라이언트
+yaml
+코드 복사
+CHAT sender: msg
+클라이언트(UI)
+채팅창에 즉시 append
+
+너무 길면 오래된 메시지 자동 제거
+
+🔧 향후 확장(러시안 룰렛 핵심 구현 예정)
+서버(Room)에 추가할 상태
+currentTurn
+
+hpP1 / hpP2
+
+cylinder[6]
+
+fireIndex(현재 탄창 위치)
+
+추가 프로토콜 예시
+nginx
+코드 복사
+AIM SELF
+AIM ENEMY
+FIRE
+FIRE_RESULT SELF BLANK KEEP_TURN
+TURN P2
+HP P1=5 P2=4
+WINNER P1
+▶ 실행 방법
+서버 실행
+ServerGuiMain 실행
+
+포트 입력 → Start
+
+로그에서 “Listening”이 뜨면 준비됨
+
+클라이언트 실행
+ClientMain 실행
+
+IP / Port / Name 입력
+
+Connect
+
+RoomFrame → GameRoomFrame 자동 전환
+
+👥 팀 정보
+이경석 (2171073)
+
+김준현 (2171062)
+
+📌 요약
+이 프로젝트는:
+
+Java TCP Socket 기반 2인 네트워크 게임
+
+서버/클라이언트 구조 완전 분리
+
+이미 구현됨:
+✔ 매칭 로직
+✔ 로비 → 게임방 이동
+✔ 채팅
+✔ 이미지 기반 UI
+
+앞으로 추가될 핵심 기능:
+🔥 턴 관리
+🔥 HP / 탄창(6칸) / 실탄·공탄 랜덤
+🔥 FIRE / AIM / RESULT 프로토콜
+🔥 승패 처리
