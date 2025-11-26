@@ -114,7 +114,7 @@ src/
      ├─ StartFrame.java       # 접속 UI (IP/Port 입력)
      ├─ RoomFrame.java        # 대기실 (Ready 상태 동기화)
      ├─ GameRoomFrame.java    # ★ 인게임 UI: 키 입력 및 캔버스 드로잉
-     ├─ RoomCanvas.java       # (Inner Class) 그래픽 요소를 그리는 패널
+     ├─ ImageLoader.java      # 이미지 리소스 로딩 유틸리티
      └─ NetworkClient.java    # 서버 송수신 담당 (Background Thread)
 
 주요 클래스 역할
@@ -124,10 +124,6 @@ GameRoomFrame.java (Client): 서버가 보낸 메시지를 해석하여 화면�
 
 Protocol.java: FIRE, AIM, TURN 등 서버와 클라이언트가 서로 약속한 명령어 집합입니다.
 ---
-
-### [Part 2] 소켓 통신 흐름 ~ 개발자 코멘트
-
-**Part 1 내용 바로 뒤에 이어서 붙여넣으세요.**
 
 ```text
 ------------------------------------------------------------------------
