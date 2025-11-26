@@ -117,8 +117,6 @@ resources/
 4. 아래 메시지 확인
 [Server] Listening on 7777
 
-yaml
-코드 복사
 
 ---
 
@@ -150,14 +148,9 @@ yaml
 Server → Client  
 HELLO
 
-arduino
-코드 복사
 
 Client → Server  
 닉네임 문자열
-
-yaml
-코드 복사
 
 이후 Room 생성 → ROOM_CREATED 브로드캐스트
 
@@ -168,14 +161,8 @@ yaml
 Client → Server  
 READY
 
-pgsql
-코드 복사
-
 Server → All  
 READY_STATE
-
-yaml
-코드 복사
 
 ---
 
@@ -188,9 +175,6 @@ TURN
 AIM_UPDATE
 ITEM_UPDATE
 
-yaml
-코드 복사
-
 ---
 
 ## (4) 조준
@@ -199,9 +183,6 @@ Client → Server
 AIM SELF
 AIM ENEMY
 
-yaml
-코드 복사
-
 ---
 
 ## (5) 발사
@@ -209,14 +190,8 @@ yaml
 Client → Server  
 FIRE
 
-pgsql
-코드 복사
-
 Server → All  
 FIRE_RESOLVE RESULT=... TARGET=... HP1=.. HP2=.. B_LEFT=.. K_LEFT=..
-
-yaml
-코드 복사
 
 ---
 
@@ -225,20 +200,12 @@ yaml
 Client → Server  
 USE_ITEM SLOT=n
 
-pgsql
-코드 복사
-
 Server → All  
 ITEM_UPDATE WHO=P1 ITEMS=...
-
-sql
-코드 복사
 
 Search 결과는  
 PEEK_RESULT TYPE=BULLET
 
-yaml
-코드 복사
 처럼 **본인에게만 전송**
 
 ---
@@ -248,14 +215,8 @@ yaml
 Client → Server  
 EXIT_ROOM
 
-arduino
-코드 복사
-
 Server → Other  
 EXIT_ROOM
-
-yaml
-코드 복사
 
 ---
 
