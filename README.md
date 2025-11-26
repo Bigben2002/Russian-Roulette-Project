@@ -194,7 +194,6 @@ Protocol.java: FIRE, AIM, TURN 등 서버와 클라이언트가 서로 약속한
 | **멀티스레드** | 클라이언트마다 별도의 `ClientHandler` 스레드 할당, UI는 EDT(Event Dispatch Thread) 분리 |
 | **동기화** | `synchronized` 키워드를 사용하여 Room 객체 내 상태 경쟁(Race Condition) 방지 |
 | **GUI** | Swing `JComponent` 커스텀 페인팅(`paintComponent`), `javax.swing.Timer` 애니메이션 |
-
 ------------------------------------------------------------------------
 
 ## 👨‍💻 개발자 코멘트
